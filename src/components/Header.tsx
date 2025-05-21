@@ -43,10 +43,8 @@ const Header = () => {
         };
       });
       const unreadCount = notifs.filter(n => !n.read).length;
-      if (unreadCount > previousCount) {
-        if (window.navigator.vibrate) {
-          window.navigator.vibrate(300);
-        }
+      if (unreadCount > previousCount && window.navigator.vibrate) {
+        window.navigator.vibrate([200, 100, 200]);
       }
       previousCount = unreadCount;
       setNotifications(notifs);

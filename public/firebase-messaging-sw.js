@@ -13,8 +13,27 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage(function(payload) {
-  self.registration.showNotification(payload.notification.title, {
+  const notificationOptions = {
     body: payload.notification.body,
-    icon: '/icon-192x192.png'
-  });
+    icon: '/icon-192x192.png',
+    badge: '/icon-192x192.png',
+    vibrate: [200, 100, 200],
+    sound: '/notification-sound.mp3',
+    requireInteraction: true,
+    actions: [
+      {
+        action: 'open',
+        title: 'فتح'
+      }
+    ]
+  };
+
+  self.registration.showNotification(payload.notification.title, notificationOptions);
+});
+
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+  if (event.action === 'open') {
+    clients.openWindow('/');
+  }
 });
