@@ -93,7 +93,7 @@ export default function AddTaskPage() {
         dateTime: new Date(dateTime).toISOString(),
         userId: user.uid,
         createdAt: new Date().toISOString(),
-        status: 'pending',
+        status: 'in_progress',
         completed: false,
         updatedAt: new Date().toISOString(),
         priority,
