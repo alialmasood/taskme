@@ -18,14 +18,22 @@ messaging.onBackgroundMessage(function(payload) {
     icon: '/icon-192x192.png',
     badge: '/icon-192x192.png',
     vibrate: [200, 100, 200],
-    sound: '/notification-sound.mp3',
+    silent: false,
     requireInteraction: true,
     actions: [
       {
         action: 'open',
         title: 'فتح'
       }
-    ]
+    ],
+    android: {
+      priority: 'high',
+      sound: 'default',
+      vibrateTimings: [200, 100, 200],
+      defaultSound: true,
+      defaultVibrateTimings: true,
+      defaultLightSettings: true
+    }
   };
 
   self.registration.showNotification(payload.notification.title, notificationOptions);

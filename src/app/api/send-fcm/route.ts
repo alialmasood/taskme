@@ -30,14 +30,36 @@ export async function POST(req: Request) {
       },
       android: {
         priority: 'high',
+        notification: {
+          sound: 'default',
+          defaultSound: true,
+          defaultVibrateTimings: true,
+          defaultLightSettings: true,
+          visibility: 'public',
+          channelId: 'high_importance_channel'
+        }
       },
       apns: {
         payload: {
           aps: {
             sound: 'default',
-          },
+            badge: 1,
+            contentAvailable: true
+          }
         },
+        headers: {
+          'apns-priority': '10'
+        }
       },
+      webpush: {
+        headers: {
+          Urgency: 'high'
+        },
+        notification: {
+          requireInteraction: true,
+          vibrate: [200, 100, 200]
+        }
+      }
     });
 
     return NextResponse.json({ success: true });

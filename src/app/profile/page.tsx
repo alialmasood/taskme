@@ -18,7 +18,7 @@ import {
 } from 'chart.js';
 import { signOut, updateProfile, updatePassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
+import { ArrowRightOnRectangleIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 
@@ -66,6 +66,30 @@ const phoneInputStyles = `
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, PointElement, LineElement);
 
+const taskTypeLabels: { [key: string]: string } = {
+  meeting: 'اجتماع',
+  work: 'عمل',
+  travel: 'سفر',
+  family: 'عائلة',
+  shopping: 'تسوق',
+  company: 'شركة',
+  other: 'أخرى',
+  outing: 'نزهة',
+  gathering: 'لقاء',
+};
+
+const taskTypeIcons: { [key: string]: string } = {
+  work: '🧑‍💼',
+  family: '👨‍👩‍👧‍👦',
+  shopping: '🛒',
+  travel: '🧳',
+  outing: '🍃',
+  meeting: '📅',
+  gathering: '🤝',
+  company: '🏢',
+  other: '🗂️',
+};
+
 export default function ProfilePage() {
   const { user, loading } = useAuth();
   const [userName, setUserName] = useState('');
@@ -80,6 +104,9 @@ export default function ProfilePage() {
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState('');
   const [editSuccess, setEditSuccess] = useState('');
+  const [showReport, setShowReport] = useState(false);
+  const [showAllActivities, setShowAllActivities] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   useEffect(() => {
     const fetchUserName = async () => {
@@ -156,18 +183,6 @@ export default function ProfilePage() {
     aiAnalysis += `يوجد بعض التحديات في إنجاز مهام "${leastCompletedType}". حاول مراجعة أسباب التأجيل أو الصعوبة في هذا النوع.`;
   }
 
-  const taskTypeLabels: { [key: string]: string } = {
-    meeting: 'اجتماع',
-    work: 'عمل',
-    travel: 'سفر',
-    family: 'عائلة',
-    shopping: 'تسوق',
-    company: 'شركة',
-    other: 'أخرى',
-    outing: 'نزهة',
-    gathering: 'لقاء',
-  };
-
   // بيانات الرسوم البيانية
   const completedCount = tasks.filter(t => t.completed || t.status === 'completed').length;
   const nowDate = new Date();
@@ -227,257 +242,335 @@ export default function ProfilePage() {
 
   return (
     <Layout>
-      <style>{phoneInputStyles}</style>
-      <div className="max-w-xl mx-auto p-3 sm:p-6">
-        <div className="flex flex-col items-center mb-4 sm:mb-8">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-indigo-100 flex items-center justify-center text-2xl sm:text-4xl font-bold text-indigo-600 mb-3 sm:mb-4">
-            {userName[0]}
+      <div className="flex flex-col items-center justify-center min-h-[30vh] mt-2 mb-6">
+        <div className="bg-white rounded-2xl shadow-lg p-4 w-full max-w-sm flex flex-col items-center gap-3">
+          {/* صورة شخصية دائرية أصغر */}
+          <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden border-4 border-indigo-200 shadow">
+            <img
+              src={user?.photoURL || '/avatar-placeholder.png'}
+              alt="الصورة الشخصية"
+              className="w-full h-full object-cover"
+            />
           </div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-extrabold text-gray-900 mb-2">{userName}</h1>
+          {/* اسم المستخدم */}
+          <div className="text-lg font-bold text-gray-800">{userName}</div>
+          {/* رقم الهاتف */}
+          <div className="flex items-center gap-2 text-gray-600 text-sm">
+            <span className="text-base">📞</span>
+            <span dir="ltr">{userPhone || 'غير محدد'}</span>
+          </div>
+          {/* الأزرار */}
+          <div className="flex gap-2 w-full mt-1">
             <button
-              className="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 rounded-full p-1 px-2 text-xs font-bold border border-indigo-200 transition"
               onClick={() => setShowEditModal(true)}
-              title="تعديل المعلومات الشخصية"
-            >تعديل</button>
+              className="flex-1 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg py-2 text-sm font-semibold flex items-center justify-center gap-2 transition"
+            >
+              <span>✏️</span> تعديل البيانات
+            </button>
+            <button
+              onClick={() => alert('إعدادات قادمة قريباً')}
+              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg py-2 text-sm font-semibold flex items-center justify-center gap-2 transition"
+            >
+              <span>⚙️</span> إعدادات
+            </button>
           </div>
-          {userPhone && (
-            <div className="flex items-center gap-1 mt-1 text-gray-600 text-sm">
-              <span className="text-lg">📱</span>
-              <span dir="ltr" style={{direction:'ltr'}}>{userPhone}</span>
-            </div>
-          )}
-        </div>
-        {/* نافذة منبثقة لتعديل المعلومات */}
-        {showEditModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" onClick={() => setShowEditModal(false)}>
-            <div className="bg-white rounded-lg shadow-2xl p-5 max-w-xs w-full relative animate-fade-in" onClick={e => e.stopPropagation()}>
-              <button className="absolute top-2 left-2 text-indigo-500 text-lg font-bold" onClick={() => setShowEditModal(false)} aria-label="إغلاق">×</button>
-              <h2 className="text-lg font-bold mb-4 text-indigo-800 text-center">تعديل المعلومات الشخصية</h2>
-              <form
-                onSubmit={async e => {
-                  e.preventDefault();
-                  setEditLoading(true);
-                  setEditError('');
-                  setEditSuccess('');
-                  try {
-                    if (!user) throw new Error('المستخدم غير موجود');
-                    // تحديث الاسم في Firestore وAuth
-                    if (editName && editName !== userName) {
-                      await updateProfile(user, { displayName: editName });
-                      await updateDoc(doc(db, 'users', user.uid), { 
-                        name: editName,
-                        phone: editPhone 
-                      });
-                      setUserName(editName);
-                    } else if (editPhone) {
-                      await updateDoc(doc(db, 'users', user.uid), { 
-                        phone: editPhone 
-                      });
-                    }
-                    // تحديث كلمة المرور إذا تم إدخالها
-                    if (editPassword) {
-                      await updatePassword(user, editPassword);
-                    }
-                    setEditSuccess('تم تحديث المعلومات بنجاح');
-                    setShowEditModal(false);
-                  } catch (err: any) {
-                    setEditError(err.message || 'حدث خطأ أثناء التحديث');
-                  } finally {
-                    setEditLoading(false);
-                  }
-                }}
-                className="flex flex-col gap-3"
-              >
-                <label className="text-sm font-bold text-gray-700">الاسم</label>
-                <input
-                  type="text"
-                  className="border rounded px-3 py-2 text-sm focus:outline-none focus:ring focus:border-indigo-400"
-                  value={editName}
-                  onChange={e => setEditName(e.target.value)}
-                  required
-                />
-                <label className="text-sm font-bold text-gray-700">كلمة المرور الجديدة (اختياري)</label>
-                <input
-                  type="password"
-                  className="border rounded px-3 py-2 text-sm focus:outline-none focus:ring focus:border-indigo-400"
-                  value={editPassword}
-                  onChange={e => setEditPassword(e.target.value)}
-                  minLength={6}
-                  placeholder="••••••"
-                />
-                <label className="text-sm font-bold text-gray-700">رقم الهاتف</label>
-                <PhoneInput
-                  country={'iq'}
-                  value={editPhone}
-                  onChange={phone => setEditPhone(phone)}
-                  inputClass="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring focus:border-indigo-400"
-                  containerClass="phone-input-container"
-                  buttonClass="phone-input-button"
-                  dropdownClass="phone-input-dropdown"
-                  searchClass="phone-input-search"
-                  specialLabel=""
-                  inputProps={{
-                    required: true,
-                    placeholder: '7xxxxxxxx'
-                  }}
-                />
-                {editError && <div className="text-red-500 text-xs mt-1">{editError}</div>}
-                {editSuccess && <div className="text-green-600 text-xs mt-1">{editSuccess}</div>}
-                <button
-                  type="submit"
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded mt-2 transition"
-                  disabled={editLoading}
-                >{editLoading ? 'جاري الحفظ...' : 'حفظ التغييرات'}</button>
-              </form>
-            </div>
-          </div>
-        )}
-        {/* تقرير الأعمال */}
-        <div className="bg-white rounded-lg shadow p-3 sm:p-4 mt-4 sm:mt-8">
-          <h2 className="text-base sm:text-lg font-bold text-indigo-700 mb-3 sm:mb-4">تقرير الأعمال</h2>
-          {loadingTasks ? (
-            <div className="text-center text-gray-500 text-sm sm:text-base">جاري تحليل المهام...</div>
-          ) : tasks.length === 0 ? (
-            <div className="text-center text-gray-400 text-sm sm:text-base">لا توجد بيانات كافية لتحليل الأعمال.</div>
-          ) : (
-            <div className="space-y-2 sm:space-y-3">
-              <div className="text-sm sm:text-base">
-                <span className="font-bold">أكثر أنواع المهام تكراراً:</span>
-                <span className="mr-2 text-indigo-700">{mostFrequentType ? taskTypeLabels[mostFrequentType] : '—'}</span>
-              </div>
-              <div className="text-sm sm:text-base">
-                <span className="font-bold">أكثر أنواع المهام إنجازاً:</span>
-                <span className="mr-2 text-green-700">{mostCompletedType ? taskTypeLabels[mostCompletedType] : '—'}</span>
-              </div>
-              <div className="text-sm sm:text-base">
-                <span className="font-bold">أقل أنواع المهام إنجازاً:</span>
-                <span className="mr-2 text-red-700">{leastCompletedType ? taskTypeLabels[leastCompletedType] : '—'}</span>
-              </div>
-              <div className="text-sm sm:text-base">
-                <span className="font-bold">أكثر أنواع المهام تأجيلاً:</span>
-                <span className="mr-2 text-yellow-700">{mostDelayedType ? taskTypeLabels[mostDelayedType] : '—'}</span>
-              </div>
-              {aiAnalysis && (
-                <div className="bg-indigo-50 rounded-lg p-2 sm:p-3 mt-3 sm:mt-4 text-xs sm:text-sm text-indigo-900 whitespace-pre-line">
-                  <span className="font-bold text-indigo-700">تحليل ذكي:</span>
-                  <br />
-                  {aiAnalysis}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-        {/* سجل النشاطات */}
-        <div className="bg-white rounded-lg shadow p-3 sm:p-4 mt-6">
-          <h2 className="text-base sm:text-lg font-bold text-indigo-700 mb-3 sm:mb-4">سجل النشاطات</h2>
-          {loadingTasks ? (
-            <div className="text-center text-gray-500 text-sm sm:text-base">جاري تحميل النشاطات...</div>
-          ) : tasks.length === 0 ? (
-            <div className="text-center text-gray-400 text-sm sm:text-base">لا يوجد نشاطات بعد.</div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* آخر المهام المنجزة */}
-              <div>
-                <h3 className="font-bold text-indigo-600 mb-2 text-sm sm:text-base">آخر المهام المنجزة</h3>
-                <ul className="space-y-2">
-                  {tasks.filter(t => t.completed || t.status === 'completed')
-                    .sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())
-                    .slice(0, 5)
-                    .map(task => (
-                      <li key={task.id} className="bg-green-50 border-r-4 border-green-400 rounded p-2 flex flex-col">
-                        <span className="font-bold text-green-800 text-xs sm:text-sm truncate">{task.title}</span>
-                        <span className="text-[11px] text-gray-500">{formatDateTime(task.dateTime)}</span>
-                        <span className="text-[11px] text-green-700">{taskTypeLabels[task.type] || 'أخرى'}</span>
-                      </li>
-                    ))}
-                </ul>
-              </div>
-              {/* آخر المهام المضافة */}
-              <div>
-                <h3 className="font-bold text-indigo-600 mb-2 text-sm sm:text-base">آخر المهام المضافة</h3>
-                <ul className="space-y-2">
-                  {tasks.filter(t => !t.completed && t.status !== 'completed')
-                    .sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())
-                    .slice(0, 5)
-                    .map(task => (
-                      <li key={task.id} className="bg-blue-50 border-r-4 border-blue-400 rounded p-2 flex flex-col">
-                        <span className="font-bold text-blue-800 text-xs sm:text-sm truncate">{task.title}</span>
-                        <span className="text-[11px] text-gray-500">{formatDateTime(task.dateTime)}</span>
-                        <span className="text-[11px] text-blue-700">{taskTypeLabels[task.type] || 'أخرى'}</span>
-                      </li>
-                    ))}
-                </ul>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* قسم الإحصائيات */}
-        <div className="mt-4 sm:mt-8 mb-4 sm:mb-8 grid grid-cols-1 gap-4 sm:gap-8">
-          <div className="bg-white rounded-lg shadow p-3 sm:p-6 flex flex-col items-center">
-            <h3 className="font-bold text-base sm:text-lg mb-3 sm:mb-4">توزيع المهام حسب الحالة</h3>
-            <div className="w-full max-w-[250px] sm:max-w-[300px]">
-              <Pie data={pieData} options={{
-                responsive: true,
-                maintainAspectRatio: true,
-                plugins: {
-                  legend: {
-                    position: 'bottom',
-                    labels: {
-                      font: {
-                        size: 12
-                      }
-                    }
-                  }
-                }
-              }} />
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-3 sm:p-6 flex flex-col items-center">
-            <h3 className="font-bold text-base sm:text-lg mb-3 sm:mb-4">عدد المهام المنجزة يومياً (آخر 7 أيام)</h3>
-            <div className="w-full max-w-[250px] sm:max-w-[300px]">
-              <Bar data={barData} options={{
-                responsive: true,
-                maintainAspectRatio: true,
-                plugins: {
-                  legend: {
-                    display: false
-                  }
-                },
-                scales: {
-                  y: {
-                    beginAtZero: true,
-                    ticks: {
-                      font: {
-                        size: 12
-                      }
-                    }
-                  },
-                  x: {
-                    ticks: {
-                      font: {
-                        size: 12
-                      }
-                    }
-                  }
-                }
-              }} />
-            </div>
-          </div>
-        </div>
-
-        {/* زر تسجيل الخروج في الأسفل */}
-        <div className="flex justify-center mt-8 mb-2">
-          <button
-            onClick={handleSignOut}
-            className="flex items-center gap-2 px-5 py-3 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-lg shadow transition-colors text-base"
-          >
-            <ArrowRightOnRectangleIcon className="w-6 h-6" />
-            تسجيل الخروج
-          </button>
         </div>
       </div>
+      {/* نافذة منبثقة لتعديل المعلومات */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" onClick={() => setShowEditModal(false)}>
+          <div className="bg-white rounded-lg shadow-2xl p-5 max-w-xs w-full relative animate-fade-in" onClick={e => e.stopPropagation()}>
+            <button className="absolute top-2 left-2 text-indigo-500 text-lg font-bold" onClick={() => setShowEditModal(false)} aria-label="إغلاق">×</button>
+            <h2 className="text-lg font-bold mb-4 text-indigo-800 text-center">تعديل المعلومات الشخصية</h2>
+            <form
+              onSubmit={async e => {
+                e.preventDefault();
+                setEditLoading(true);
+                setEditError('');
+                setEditSuccess('');
+                try {
+                  if (!user) throw new Error('المستخدم غير موجود');
+                  // تحديث الاسم في Firestore وAuth
+                  if (editName && editName !== userName) {
+                    await updateProfile(user, { displayName: editName });
+                    await updateDoc(doc(db, 'users', user.uid), { 
+                      name: editName,
+                      phone: editPhone 
+                    });
+                    setUserName(editName);
+                  } else if (editPhone) {
+                    await updateDoc(doc(db, 'users', user.uid), { 
+                      phone: editPhone 
+                    });
+                  }
+                  // تحديث كلمة المرور إذا تم إدخالها
+                  if (editPassword) {
+                    await updatePassword(user, editPassword);
+                  }
+                  setEditSuccess('تم تحديث المعلومات بنجاح');
+                  setShowEditModal(false);
+                } catch (err: any) {
+                  setEditError(err.message || 'حدث خطأ أثناء التحديث');
+                } finally {
+                  setEditLoading(false);
+                }
+              }}
+              className="flex flex-col gap-3"
+            >
+              <label className="text-sm font-bold text-gray-700">الاسم</label>
+              <input
+                type="text"
+                className="border rounded px-3 py-2 text-sm focus:outline-none focus:ring focus:border-indigo-400"
+                value={editName}
+                onChange={e => setEditName(e.target.value)}
+                required
+              />
+              <label className="text-sm font-bold text-gray-700">كلمة المرور الجديدة (اختياري)</label>
+              <input
+                type="password"
+                className="border rounded px-3 py-2 text-sm focus:outline-none focus:ring focus:border-indigo-400"
+                value={editPassword}
+                onChange={e => setEditPassword(e.target.value)}
+                minLength={6}
+                placeholder="••••••"
+              />
+              <label className="text-sm font-bold text-gray-700">رقم الهاتف</label>
+              <PhoneInput
+                country={'iq'}
+                value={editPhone}
+                onChange={phone => setEditPhone(phone)}
+                inputClass="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring focus:border-indigo-400"
+                containerClass="phone-input-container"
+                buttonClass="phone-input-button"
+                dropdownClass="phone-input-dropdown"
+                searchClass="phone-input-search"
+                specialLabel=""
+                inputProps={{
+                  required: true,
+                  placeholder: '7xxxxxxxx'
+                }}
+              />
+              {editError && <div className="text-red-500 text-xs mt-1">{editError}</div>}
+              {editSuccess && <div className="text-green-600 text-xs mt-1">{editSuccess}</div>}
+              <button
+                type="submit"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded mt-2 transition"
+                disabled={editLoading}
+              >{editLoading ? 'جاري الحفظ...' : 'حفظ التغييرات'}</button>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* تقرير الأعمال (Accordion) */}
+      <div className="bg-white rounded-lg shadow p-3 sm:p-4 mt-4 sm:mt-8">
+        <button
+          className="flex items-center justify-between w-full text-right focus:outline-none"
+          onClick={() => setShowReport((prev) => !prev)}
+        >
+          <span className="flex items-center gap-2 text-base sm:text-lg font-bold text-indigo-700">
+            <span className="text-2xl">📊</span>
+            تقرير المهام
+          </span>
+          {showReport ? (
+            <ChevronUpIcon className="w-6 h-6 text-indigo-500" />
+          ) : (
+            <ChevronDownIcon className="w-6 h-6 text-indigo-500" />
+          )}
+        </button>
+        {showReport && (
+          <div className="mt-4 space-y-2 sm:space-y-3 border-t pt-4">
+            <div className="flex items-center gap-2 text-green-700 text-sm sm:text-base">
+              <span className="text-lg">✅</span>
+              <span>أكثر المهام إنجازًا:</span>
+              <span className="font-bold">{mostCompletedType ? taskTypeLabels[mostCompletedType] : '—'}</span>
+            </div>
+            <div className="flex items-center gap-2 text-red-700 text-sm sm:text-base">
+              <span className="text-lg">❌</span>
+              <span>أقل المهام إنجازًا:</span>
+              <span className="font-bold">{leastCompletedType ? taskTypeLabels[leastCompletedType] : '—'}</span>
+            </div>
+            <div className="flex items-center gap-2 text-yellow-700 text-sm sm:text-base">
+              <span className="text-lg">⏳</span>
+              <span>أكثر المهام تأجيلًا:</span>
+              <span className="font-bold">{mostDelayedType ? taskTypeLabels[mostDelayedType] : '—'}</span>
+            </div>
+            <div className="flex items-center gap-2 text-indigo-700 text-sm sm:text-base">
+              <span className="text-lg">🔁</span>
+              <span>أكثر المهام تكرارًا:</span>
+              <span className="font-bold">{mostFrequentType ? taskTypeLabels[mostFrequentType] : '—'}</span>
+            </div>
+            {aiAnalysis && (
+              <div className="bg-indigo-50 rounded-lg p-2 sm:p-3 mt-3 sm:mt-4 text-xs sm:text-sm text-indigo-900 whitespace-pre-line">
+                <span className="font-bold text-indigo-700">تلميح:</span>
+                <br />
+                {aiAnalysis}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      {/* سجل النشاطات */}
+      <div className="bg-white rounded-lg shadow p-3 sm:p-4 mt-6">
+        <h2 className="text-base sm:text-lg font-bold text-indigo-700 mb-3 sm:mb-4">سجل النشاطات</h2>
+        {loadingTasks ? (
+          <div className="text-center text-gray-500 text-sm sm:text-base">جاري تحميل النشاطات...</div>
+        ) : tasks.length === 0 ? (
+          <div className="text-center text-gray-400 text-sm sm:text-base">لا يوجد نشاطات بعد.</div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {(showAllActivities
+              ? tasks
+                  .sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())
+                  .slice(0, 10)
+              : tasks
+                  .sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())
+                  .slice(0, 2)
+            ).map((task) => {
+              const date = new Date(task.dateTime);
+              const dayName = date.toLocaleDateString('ar-EG', { weekday: 'long' });
+              const day = date.getDate();
+              const month = date.getMonth() + 1;
+              const hour = date.getHours();
+              const minute = date.getMinutes();
+              const ampm = hour >= 12 ? 'م' : 'ص';
+              const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+              return (
+                <div
+                  key={task.id}
+                  className={`rounded-xl p-3 flex flex-col gap-1 shadow-sm border border-gray-100 bg-gray-50`}
+                  style={{ fontSize: '1rem' }}
+                >
+                  <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
+                    <span className="text-base">📅</span>
+                    <span>{dayName} {day}/{month} - الساعة {hour12}:{minute.toString().padStart(2, '0')} {ampm}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-indigo-700 font-semibold text-sm">
+                    <span className="text-lg">{taskTypeIcons[task.type] || taskTypeIcons['other']}</span>
+                    <span>{taskTypeLabels[task.type] || 'أخرى'}</span>
+                    <span className="text-gray-400">-</span>
+                    <span className="truncate">{task.title}</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    {task.completed || task.status === 'completed' ? (
+                      <span className="bg-green-100 text-green-700 rounded-full px-2 py-0.5 text-xs flex items-center gap-1">
+                        <span className="text-base">✅</span> مكتملة
+                      </span>
+                    ) : task.status === 'delayed' ? (
+                      <span className="bg-yellow-100 text-yellow-700 rounded-full px-2 py-0.5 text-xs flex items-center gap-1">
+                        <span className="text-base">⏳</span> مؤجلة
+                      </span>
+                    ) : (
+                      <span className="bg-blue-100 text-blue-700 rounded-full px-2 py-0.5 text-xs flex items-center gap-1">
+                        <span className="text-base">🕒</span> جارية
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {tasks.length > 2 && !showAllActivities && (
+              <button
+                className="mx-auto mt-2 px-4 py-1 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-full text-sm font-bold transition"
+                onClick={() => setShowAllActivities(true)}
+              >
+                عرض المزيد
+              </button>
+            )}
+            {showAllActivities && tasks.length > 2 && (
+              <button
+                className="mx-auto mt-2 px-4 py-1 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full text-sm font-bold transition"
+                onClick={() => setShowAllActivities(false)}
+              >
+                عرض أقل
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* قسم الإحصائيات */}
+      <div className="mt-4 sm:mt-8 mb-4 sm:mb-8 grid grid-cols-1 gap-4 sm:gap-8">
+        <div className="bg-white rounded-lg shadow p-3 sm:p-6 flex flex-col items-center">
+          <h3 className="font-bold text-base sm:text-lg mb-3 sm:mb-4">توزيع المهام حسب الحالة</h3>
+          <div className="w-full max-w-[250px] sm:max-w-[300px]">
+            <Pie data={pieData} options={{
+              responsive: true,
+              maintainAspectRatio: true,
+              plugins: {
+                legend: {
+                  position: 'bottom',
+                  labels: {
+                    font: {
+                      size: 12
+                    }
+                  }
+                }
+              }
+            }} />
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-3 sm:p-6 flex flex-col items-center">
+          <h3 className="font-bold text-base sm:text-lg mb-3 sm:mb-4">عدد المهام المنجزة يومياً (آخر 7 أيام)</h3>
+          <div className="w-full max-w-[250px] sm:max-w-[300px]">
+            <Bar data={barData} options={{
+              responsive: true,
+              maintainAspectRatio: true,
+              plugins: {
+                legend: {
+                  display: false
+                }
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  ticks: {
+                    font: {
+                      size: 12
+                    }
+                  }
+                },
+                x: {
+                  ticks: {
+                    font: {
+                      size: 12
+                    }
+                  }
+                }
+              }
+            }} />
+          </div>
+        </div>
+      </div>
+
+      {/* زر تسجيل الخروج في الأسفل */}
+      <div className="flex justify-center mt-8 mb-2">
+        <button
+          onClick={() => setShowLogoutConfirm(true)}
+          className="flex items-center gap-2 px-5 py-3 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-lg shadow transition-colors text-base"
+        >
+          <ArrowRightOnRectangleIcon className="w-6 h-6" />
+          تسجيل الخروج
+        </button>
+      </div>
+      {/* نافذة تأكيد تسجيل الخروج */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" onClick={() => setShowLogoutConfirm(false)}>
+          <div className="bg-white rounded-lg shadow-2xl p-6 max-w-xs w-full relative animate-fade-in" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-bold mb-4 text-red-700 text-center">تأكيد تسجيل الخروج</h2>
+            <p className="text-gray-700 text-center mb-6">هل أنت متأكد أنك تريد تسجيل الخروج؟</p>
+            <div className="flex justify-between gap-3">
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded font-bold"
+              >إلغاء</button>
+              <button
+                onClick={handleSignOut}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-bold"
+              >تأكيد</button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 } 

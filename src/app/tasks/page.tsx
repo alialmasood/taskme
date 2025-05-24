@@ -127,28 +127,12 @@ const TaskCard = ({ task, onDelete, onStatusChange }: TaskCardProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [longPressTimeout, setLongPressTimeout] = useState<NodeJS.Timeout | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
   const [userNames, setUserNames] = useState<{ [uid: string]: string }>({});
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
-
-  const syncUserToFirestore = async (userData: any) => {
-    const userRef = doc(db, 'users', userData.uid);
-    const userDoc = await getDoc(userRef);
-    
-    if (!userDoc.exists()) {
-      await setDoc(userRef, {
-        uid: userData.uid,
-        email: userData.email,
-        displayName: userData.displayName || userData.email?.split('@')[0] || 'مستخدم',
-        createdAt: new Date().toISOString()
-      });
-    }
-  };
 
   const fetchUsers = async () => {
     if (!user) {
@@ -353,18 +337,6 @@ if (!authUsers || data.error) {
     }
   };
 
-  // عند فتح تفاصيل المهمة، إذا كان هناك مشاركان فقط، حدد الطرف الآخر تلقائيًا
-  useEffect(() => {
-    if (task.participants && user && user.uid) {
-      const others = task.participants.filter(uid => uid !== user.uid);
-      if (others.length === 1) {
-        setSelectedUserId(others[0]);
-      } else {
-        setSelectedUserId(null); // يجب على المستخدم اختيار الطرف الآخر
-      }
-    }
-  }, [task.participants, user]);
-
   // الاستماع للرسائل في الوقت الفعلي
   useEffect(() => {
     if (!user || !task.id) return;
@@ -452,22 +424,14 @@ if (!authUsers || data.error) {
 
   // دالة معالجة الضغط المطول
   const handleLongPress = (messageId: string) => {
-    const timeout = setTimeout(() => {
-      setSelectedMessage(messageId);
-      if (window.navigator.vibrate) {
-        window.navigator.vibrate(50);
-      }
-    }, 500);
-    setLongPressTimeout(timeout);
+    setSelectedMessage(messageId);
+    if (window.navigator.vibrate) {
+      window.navigator.vibrate(50);
+    }
   };
 
   // دالة معالجة إلغاء الضغط
-  const handlePressEnd = () => {
-    if (longPressTimeout) {
-      clearTimeout(longPressTimeout);
-      setLongPressTimeout(null);
-    }
-  };
+  const handlePressEnd = () => {};
 
   // دالة لجلب اسم المستخدم من قاعدة البيانات
   const fetchUserName = async (uid: string) => {
@@ -757,7 +721,7 @@ if (!authUsers || data.error) {
               </div>
 
               {/* قسم المحادثة */}
-              <div className="flex-1 border-t pt-3 sm:pt-4 flex flex-col">
+              <div className="flex-1 border-t pt-3 sm:pt-4 flex flex-col min-h-[300px]">
                 <div className="flex justify-between items-center mb-2 sm:mb-3">
                   <h3 className="text-sm font-semibold text-gray-700">المحادثة</h3>
                   {task.participants && (
@@ -788,7 +752,7 @@ if (!authUsers || data.error) {
                 </div>
                 
                 {/* عرض الرسائل */}
-                <div className="flex-1 min-h-[200px] sm:min-h-[300px] max-h-[40vh] sm:max-h-[50vh] overflow-y-auto mb-2 sm:mb-3 p-2 sm:p-3 bg-gray-50 rounded-lg">
+                <div className="flex-1 overflow-y-auto mb-2 sm:mb-3 p-2 sm:p-3 bg-gray-50 rounded-lg">
                   {messages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
                       <span className="text-4xl mb-2">💬</span>
@@ -1030,6 +994,17 @@ if (!authUsers || data.error) {
 
 const PAGE_SIZE = 10;
 
+const ConnectionStatus = ({ online }: { online: boolean }) => {
+  return (
+    <div className={`flex items-center gap-2 px-3 py-1 rounded-lg shadow-sm transition-all duration-300 text-sm font-medium ${
+      online ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+    }`}>
+      <span className={`w-2 h-2 rounded-full ${online ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></span>
+      <span>{online ? 'متصل بالإنترنت' : 'غير متصل بالإنترنت'}</span>
+    </div>
+  );
+};
+
 export default function TasksPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -1042,7 +1017,22 @@ export default function TasksPage() {
   const [lastDoc, setLastDoc] = useState<any>(null);
   const [hasMore, setHasMore] = useState(true);
   const [showFcmAlert, setShowFcmAlert] = useState(false);
+  const [online, setOnline] = useState(true);
 
+  // مراقبة حالة الاتصال
+  useEffect(() => {
+    setOnline(navigator.onLine);
+    const handleOnline = () => setOnline(true);
+    const handleOffline = () => setOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // جلب المهام وتخزينها محليًا
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login');
@@ -1083,6 +1073,8 @@ export default function TasksPage() {
             const shared = prev.filter(t => t.sharedWith && t.sharedWith.includes(user.uid) && t.userId !== user.uid);
             const all = [...myTasks, ...shared];
             all.sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime());
+            // حفظ المهام في localStorage
+            localStorage.setItem('tasks', JSON.stringify(all));
             return all;
           });
           if (firstMyTasks) {
@@ -1122,6 +1114,8 @@ export default function TasksPage() {
             const mine = prev.filter(t => t.userId === user.uid);
             const all = [...mine, ...sharedTasks];
             all.sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime());
+            // حفظ المهام في localStorage
+            localStorage.setItem('tasks', JSON.stringify(all));
             return all;
           });
           if (firstSharedTasks) {
@@ -1135,8 +1129,15 @@ export default function TasksPage() {
         unsubMyTasks();
         unsubSharedTasks();
       };
+    } else if (!navigator.onLine) {
+      // إذا لم يوجد اتصال، جلب المهام من localStorage
+      const cached = localStorage.getItem('tasks');
+      if (cached) {
+        setTasks(JSON.parse(cached));
+        setLoading(false);
+      }
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, online]);
 
   useEffect(() => {
     checkFcmSupport().then(setFcmSupported);
@@ -1372,6 +1373,11 @@ export default function TasksPage() {
 
   return (
     <Layout>
+      {!online && (
+        <div className="bg-yellow-100 text-yellow-800 p-3 rounded-lg mb-4 font-bold text-center">
+          أنت الآن أوفلاين. يتم عرض المهام المخزنة فقط.
+        </div>
+      )}
       {!fcmSupported && showFcmAlert && (
         <div className="bg-yellow-100 text-yellow-800 p-3 rounded-lg mb-4 font-bold relative">
           <button
@@ -1416,9 +1422,9 @@ export default function TasksPage() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <AnimatePresence>
-              {otherTasks.map((task) => (
+              {otherTasks.map((task, idx) => (
                 <motion.div
-                  key={task.id}
+                  key={task.id + '-' + idx}
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -30 }}
@@ -1454,7 +1460,7 @@ export default function TasksPage() {
               <AnimatePresence>
                 {completedTasks.map((task, idx) => (
                   <motion.div
-                    key={task.id}
+                    key={task.id + '-' + idx}
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -30 }}

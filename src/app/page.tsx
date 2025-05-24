@@ -181,6 +181,55 @@ function getHourColor(hour: number, tasks: Task[], nowHour: number) {
   }
 }
 
+// مكون مؤشر الاتصال
+const ConnectionStatus = ({ online }: { online: boolean }) => (
+  <div className={`flex items-center gap-2 px-3 py-1 rounded-lg shadow-sm transition-all duration-300 text-sm font-medium ${
+    online ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+  }`}>
+    <span className={`w-2 h-2 rounded-full ${online ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></span>
+    <span>{online ? 'متصل بالإنترنت' : 'غير متصل بالإنترنت'}</span>
+  </div>
+);
+
+// دوال مساعدة للتواريخ
+const getStartOfDay = (date: Date) => {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+const getStartOfWeek = (date: Date) => {
+  const start = getStartOfDay(date);
+  start.setDate(start.getDate() - start.getDay());
+  return start;
+};
+const getWeekDays = () => {
+  const startOfWeek = getStartOfWeek(new Date());
+  return Array.from({ length: 7 }, (_, i) => {
+    const day = new Date(startOfWeek);
+    day.setDate(startOfWeek.getDate() + i);
+    day.setHours(0, 0, 0, 0);
+    return day;
+  });
+};
+const getMonthDays = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  return Array.from({ length: daysInMonth }, (_, i) => {
+    const day = new Date(year, month, i + 1);
+    day.setHours(0, 0, 0, 0);
+    return day;
+  });
+};
+
+// دالة مقارنة دقيقة
+const isSameDay = (date1: Date, date2: Date) => {
+  return date1.getFullYear() === date2.getFullYear() &&
+         date1.getMonth() === date2.getMonth() &&
+         date1.getDate() === date2.getDate();
+};
+
 export default function HomePage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -193,6 +242,7 @@ export default function HomePage() {
   const prevTasksRef = useRef<Task[]>([]);
   const prevCompletedRef = useRef<number>(0);
   const [activeBusyDay, setActiveBusyDay] = useState<string | null>(null);
+  const [online, setOnline] = useState(true);
 
   // --- منطق الشارات التحفيزية ---
   const achievementMilestones = [5, 10, 20, 50, 100];
@@ -367,6 +417,18 @@ export default function HomePage() {
   const closeNotification = (id: string) => {
     setNotifications(n => n.filter(notif => notif.id !== id));
   };
+
+  useEffect(() => {
+    setOnline(navigator.onLine);
+    const handleOnline = () => setOnline(true);
+    const handleOffline = () => setOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   if (authLoading || loading) {
     return <div>جاري التحميل...</div>;
@@ -554,7 +616,8 @@ export default function HomePage() {
         </div>
 
         {/* التبويبات */}
-        <div className="flex space-x-2 sm:space-x-4 mb-4 sm:mb-6 overflow-x-auto pb-2">
+        <div className="flex items-center justify-between mb-4 sm:mb-6 overflow-x-auto pb-2">
+          <div className="flex space-x-2 sm:space-x-4">
           {['today', 'week', 'month'].map((tab) => (
           <button
               key={tab}
@@ -568,6 +631,10 @@ export default function HomePage() {
               {tab === 'today' ? 'اليوم' : tab === 'week' ? 'الأسبوع' : 'الشهر'}
           </button>
           ))}
+          </div>
+          <div className="me-2">
+            <ConnectionStatus online={online} />
+          </div>
         </div>
 
         {/* قسم المهام القادمة */}
@@ -624,15 +691,13 @@ export default function HomePage() {
           )}
           {activeTab === 'week' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-              {Array.from({ length: 7 }).map((_, i) => {
-                const d = new Date(weekStartBusyDays);
-                d.setDate(weekStartBusyDays.getDate() + i);
-                const dayKey = d.toISOString().slice(0, 10);
-                const dayTasks = tasks.filter(task => task.dateTime.slice(0, 10) === dayKey);
+              {getWeekDays().map((day) => {
+                const dayTasks = tasks.filter(task => isSameDay(new Date(task.dateTime), day));
                 const mainType = getMainTaskType(dayTasks);
+                const dayKey = `${day.getFullYear()}-${(day.getMonth()+1).toString().padStart(2,'0')}-${day.getDate().toString().padStart(2,'0')}`;
                 return (
                   <div key={dayKey} className={`rounded-lg shadow p-2 sm:p-3 text-center text-xs sm:text-sm font-bold text-indigo-900 ${mainType ? 'bg-blue-100' : 'bg-white'}`}>
-                    {`${weekDays[d.getDay()]} ${dayKey.replace(/\d{4}-/, '').replace('-', '/')} : `}
+                    {`${weekDays[day.getDay()]} ${dayKey.replace(/\d{4}-/, '').replace('-', '/')} : `}
                     {mainType ? `لديك ${taskTypeLabels[mainType]}` : 'لا توجد مهام'}
                   </div>
                 );
@@ -641,24 +706,17 @@ export default function HomePage() {
           )}
           {activeTab === 'month' && (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-              {(() => {
-                const d = new Date();
-                const year = d.getFullYear();
-                const month = d.getMonth();
-                const daysInMonth = new Date(year, month + 1, 0).getDate();
-                return Array.from({ length: daysInMonth }).map((_, i) => {
-                  const day = new Date(year, month, i + 1);
-                  const dayKey = day.toISOString().slice(0, 10);
-                  const dayTasks = tasks.filter(task => task.dateTime.slice(0, 10) === dayKey);
-                  const mainType = getMainTaskType(dayTasks);
-                  return (
-                    <div key={dayKey} className={`rounded-lg shadow p-2 sm:p-3 text-center text-xs sm:text-sm font-bold text-indigo-900 ${mainType ? 'bg-blue-100' : 'bg-white'}`}>
-                      {`${weekDays[day.getDay()]} ${dayKey.replace(/\d{4}-/, '').replace('-', '/')} : `}
-                      {mainType ? `لديك ${taskTypeLabels[mainType]}` : 'لا توجد مهام'}
-                    </div>
-                  );
-                });
-              })()}
+              {getMonthDays().map((day) => {
+                const dayTasks = tasks.filter(task => isSameDay(new Date(task.dateTime), day));
+                const mainType = getMainTaskType(dayTasks);
+                const dayKey = `${day.getFullYear()}-${(day.getMonth()+1).toString().padStart(2,'0')}-${day.getDate().toString().padStart(2,'0')}`;
+                return (
+                  <div key={dayKey} className={`rounded-lg shadow p-2 sm:p-3 text-center text-xs sm:text-sm font-bold text-indigo-900 ${mainType ? 'bg-blue-100' : 'bg-white'}`}>
+                    {`${weekDays[day.getDay()]} ${dayKey.replace(/\d{4}-/, '').replace('-', '/')} : `}
+                    {mainType ? `لديك ${taskTypeLabels[mainType]}` : 'لا توجد مهام'}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
